@@ -213,18 +213,26 @@ Hardware acceleration and compute optimization settings.
 
 ```yaml
 acceleration:
-  mixed_precision_mode: "bf16"      # "no", "fp16", or "bf16"
-  quantization: null                # Quantization options
-  load_text_encoder_in_8bit: false  # Load text encoder in 8-bit
+  mixed_precision_mode: "bf16"        # "no", "fp16", or "bf16"
+  quantization: null                  # Quantization options
+  load_text_encoder_in_8bit: false    # Load text encoder in 8-bit
+  ramtorch_offload: false             # Enable CPU offloading
+  ramtorch_offload_percent: 1.0       # Percentage of layers to offload
 ```
 
 **Key parameters:**
 
-| Parameter                   | Description                                                                        |
-|-----------------------------|------------------------------------------------------------------------------------|
-| `mixed_precision_mode`      | Precision mode - `"bf16"` recommended for modern GPUs                              |
-| `quantization`              | Model quantization: `null`, `"int8-quanto"`, `"int4-quanto"`, `"fp8-quanto"`, etc. |
-| `load_text_encoder_in_8bit` | Load the Gemma text encoder in 8-bit to save GPU memory                            |
+| Parameter                    | Description                                                                        |
+|------------------------------|------------------------------------------------------------------------------------|
+| `mixed_precision_mode`       | Precision mode - `"bf16"` recommended for modern GPUs                              |
+| `quantization`               | Model quantization: `null`, `"int8-quanto"`, `"int4-quanto"`, `"fp8-quanto"`, etc. |
+| `load_text_encoder_in_8bit`  | Load the Gemma text encoder in 8-bit to save GPU memory                            |
+| `ramtorch_offload`           | Enable RamTorch CPU offloading for memory-constrained training                     |
+| `ramtorch_offload_percent`   | Percentage of Linear layers to offload to CPU (0.0-1.0). Lower = faster            |
+
+> [!TIP]
+> See [CPU Offloading for Memory-Constrained Training](training-guide.md#-cpu-offloading-for-memory-constrained-training)
+> in the Training Guide for detailed configuration recommendations.
 
 ### DataConfig
 

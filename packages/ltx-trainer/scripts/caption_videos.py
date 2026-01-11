@@ -27,6 +27,7 @@ Advanced usage:
 
 import csv
 import json
+import os
 from enum import Enum
 from pathlib import Path
 
@@ -151,7 +152,8 @@ def caption_media(
                 )
 
                 # Convert absolute path to relative path (relative to the output file's directory)
-                rel_path = str(media_file.resolve().relative_to(base_dir))
+                # Use os.path.relpath which handles paths not being subpaths of each other
+                rel_path = os.path.relpath(media_file.resolve(), base_dir)
                 # Store the caption with the relative path as key
                 captions[rel_path] = caption
                 successfully_captioned += 1
@@ -407,6 +409,12 @@ def main(  # noqa: PLR0913
         envvar=["GOOGLE_API_KEY", "GEMINI_API_KEY"],
         help="API key for Gemini Flash (can also use GOOGLE_API_KEY or GEMINI_API_KEY env var)",
     ),
+    model_path: str | None = typer.Option(
+        None,
+        "--model-path",
+        "-m",
+        help="Custom model path for Qwen Omni (e.g., for abliterated model). If not provided, uses HuggingFace model.",
+    ),
 ) -> None:
     """Auto-caption videos with audio using multimodal models.
     This script supports audio-visual captioning using:
@@ -455,6 +463,7 @@ def main(  # noqa: PLR0913
                 device=device_str,
                 use_8bit=use_8bit,
                 instruction=instruction,
+                model_path=model_path,
             )
         elif captioner_type == CaptionerType.GEMINI_FLASH:
             captioner = create_captioner(

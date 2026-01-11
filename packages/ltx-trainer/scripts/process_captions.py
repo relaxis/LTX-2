@@ -324,6 +324,14 @@ def compute_captions_embeddings(
 
     logger.info(f"Processed {len(dataset):,} captions. Embeddings saved to {output_path}")
 
+    # Explicitly free GPU memory for subsequent video processing
+    del text_encoder
+    import gc
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        logger.debug("GPU memory cleared after caption processing")
+
 
 @app.command()
 def main(

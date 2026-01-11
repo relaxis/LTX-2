@@ -49,12 +49,14 @@ def load_transformer(
     checkpoint_path: str | Path,
     device: Device = "cpu",
     dtype: torch.dtype = torch.bfloat16,
+    preserve_dtype: bool = False,
 ) -> "LTXModel":
     """Load the LTX transformer model.
     Args:
         checkpoint_path: Path to the safetensors checkpoint file
         device: Device to load model on
-        dtype: Data type for model weights
+        dtype: Data type for model weights (ignored if preserve_dtype=True)
+        preserve_dtype: If True, preserve original dtypes from checkpoint (e.g., FP8)
     Returns:
         Loaded LTXModel transformer
     """
@@ -64,11 +66,14 @@ def load_transformer(
         LTXModelConfigurator,
     )
 
+    # Pass dtype=None to preserve original dtypes (including FP8)
+    effective_dtype = None if preserve_dtype else dtype
+
     return SingleGPUModelBuilder(
         model_path=str(checkpoint_path),
         model_class_configurator=LTXModelConfigurator,
         model_sd_ops=LTXV_MODEL_COMFY_RENAMING_MAP,
-    ).build(device=_to_torch_device(device), dtype=dtype)
+    ).build(device=_to_torch_device(device), dtype=effective_dtype)
 
 
 def load_video_vae_encoder(
@@ -250,6 +255,7 @@ def load_model(
     with_audio_vae_decoder: bool = True,
     with_vocoder: bool = True,
     with_text_encoder: bool = True,
+    preserve_dtype: bool = False,
 ) -> LtxModelComponents:
     """
     Load LTX-2 model components from a safetensors checkpoint.
@@ -265,12 +271,13 @@ def load_model(
         checkpoint_path: Path to the safetensors checkpoint file
         text_encoder_path: Path to Gemma model directory (required if with_text_encoder=True)
         device: Device to load models on ("cuda", "cpu", etc.)
-        dtype: Data type for model weights
+        dtype: Data type for model weights (ignored for transformer if preserve_dtype=True)
         with_video_vae_encoder: Whether to load the video VAE encoder (for preprocessing)
         with_video_vae_decoder: Whether to load the video VAE decoder (for inference/validation)
         with_audio_vae_decoder: Whether to load the audio VAE decoder
         with_vocoder: Whether to load the vocoder
         with_text_encoder: Whether to load the text encoder
+        preserve_dtype: If True, preserve original dtypes in transformer (for FP8 models)
     Returns:
         LtxModelComponents containing all loaded model components
     """
@@ -288,7 +295,7 @@ def load_model(
 
     # Load transformer
     logger.debug("Loading transformer...")
-    transformer = load_transformer(checkpoint_path, torch_device, dtype)
+    transformer = load_transformer(checkpoint_path, torch_device, dtype, preserve_dtype=preserve_dtype)
 
     # Load video VAE encoder
     video_vae_encoder = None

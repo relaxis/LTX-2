@@ -245,7 +245,7 @@ def module_ops_from_gemma_root(gemma_root: str) -> tuple[ModuleOps, ...]:
 
     def load_gemma(module: GemmaTextEncoderModelBase) -> GemmaTextEncoderModelBase:
         module.model = Gemma3ForConditionalGeneration.from_pretrained(
-            gemma_path, local_files_only=True, torch_dtype=torch.bfloat16
+            gemma_path, local_files_only=True, torch_dtype=torch.bfloat16, device_map="auto"
         )
         module._gemma_root = module._gemma_root or gemma_root
         return module

@@ -34,6 +34,21 @@ dependencies = [
     "setuptools>=80.9.0",
 ]
 
+[project.optional-dependencies]
+# DeepSpeed for ZeRO-3 CPU offload training
+deepspeed = [
+    "deepspeed>=0.14.0",
+]
+# HQQ for memory-efficient INT4/INT8 quantized training
+hqq = [
+    "hqq>=0.2.0",
+]
+# All memory-efficient training options
+memory-efficient = [
+    "deepspeed>=0.14.0",
+    "hqq>=0.2.0",
+]
+
 [dependency-groups]
 dev = [
     "pre-commit>=4.0.1",

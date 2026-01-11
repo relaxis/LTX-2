@@ -20,6 +20,17 @@ checkpoints/
 tmp
 .wandb
 
+# Data directories (large files)
+datasets/
+models/
+outputs/
+
+# Claude Code
+.claude/
+
+# User-specific automation scripts
+nsfw_dataset_automation/
+
 # Model checkpoints
 *.ckpt
 *.pt

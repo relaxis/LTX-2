@@ -38,12 +38,14 @@ def quantize_model(
     weight_quant = _quanto_type_map(precision)
     extra_quanto_args = {
         "exclude": [
-            "proj_in",
-            "time_embed.*",
-            "caption_projection.*",
-            "rope",
+            "*proj_in*",  # Use wildcards for proper matching
+            "*proj_out*",
+            "*patchify_proj*",  # Required for model input (video AND audio)
+            "*time_embed*",
+            "*caption_projection*",
+            "*adaln*",  # Audio adaln layers
+            "*rope*",
             "*norm*",
-            "proj_out",
         ]
     }
     if quantize_activations:

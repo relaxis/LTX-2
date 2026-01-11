@@ -159,12 +159,40 @@ class AccelerationConfig(ConfigBaseModel):
 
     quantization: QuantizationOptions | None = Field(
         default=None,
-        description="Quantization precision to use",
+        description="Quantization precision to use (quanto-based, not compatible with DeepSpeed)",
+    )
+
+    hqq_quantization: Literal["int4", "int8"] | None = Field(
+        default=None,
+        description="HQQ quantization precision for memory-efficient full model training. "
+        "Uses Half-Quadratic Quantization which is faster than quanto and doesn't require calibration data. "
+        "Not compatible with DeepSpeed (use one or the other).",
     )
 
     load_text_encoder_in_8bit: bool = Field(
         default=False,
         description="Whether to load the text encoder in 8-bit precision to save memory",
+    )
+
+    ramtorch_offload: bool = Field(
+        default=False,
+        description="Enable RamTorch CPU offloading. Keeps model parameters in CPU RAM and transfers "
+        "to GPU on-demand with async CUDA streams. Enables training larger LoRA ranks than GPU memory allows.",
+    )
+
+    ramtorch_offload_percent: float = Field(
+        default=1.0,
+        ge=0.0,
+        le=1.0,
+        description="Percentage of Linear layers to offload to CPU (0.0-1.0). Use less than 1.0 for partial "
+        "offloading when combined with quantization. Lower values = faster but more VRAM usage.",
+    )
+
+    load_fp8_model: bool = Field(
+        default=False,
+        description="Load model with preserved FP8 weights (for pre-quantized FP8 checkpoints). "
+        "When enabled, model weights are kept in their original dtype (including float8_e4m3fn) "
+        "instead of being converted to bf16. Requires a pre-quantized FP8 model file.",
     )
 
 

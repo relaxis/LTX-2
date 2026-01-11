@@ -329,9 +329,6 @@ class LTXModel(torch.nn.Module):
         # Process transformer blocks
         for block in self.transformer_blocks:
             if self._enable_gradient_checkpointing and self.training:
-                # Use gradient checkpointing to save memory during training.
-                # With use_reentrant=False, we can pass dataclasses directly -
-                # PyTorch will track all tensor leaves in the computation graph.
                 video, audio = torch.utils.checkpoint.checkpoint(
                     block,
                     video,
@@ -358,8 +355,10 @@ class LTXModel(torch.nn.Module):
     ) -> torch.Tensor:
         """Process output for LTXV."""
         # Apply scale-shift modulation
+        # Cast both tensors to x.dtype to prevent float32 contamination with FP8 quantization
         scale_shift_values = (
-            scale_shift_table[None, None].to(device=x.device, dtype=x.dtype) + embedded_timestep[:, :, None]
+            scale_shift_table[None, None].to(device=x.device, dtype=x.dtype)
+            + embedded_timestep[:, :, None].to(dtype=x.dtype)
         )
         shift, scale = scale_shift_values[:, :, 0], scale_shift_values[:, :, 1]
 

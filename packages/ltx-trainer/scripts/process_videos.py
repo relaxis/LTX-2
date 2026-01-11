@@ -179,10 +179,41 @@ class MediaDataset(Dataset):
     @staticmethod
     def _extract_audio(video_path: Path, target_duration: float) -> dict[str, torch.Tensor | int] | None:
         """Extract audio track from a video file, trimmed to match video duration."""
+        import subprocess
+        import tempfile
+        import soundfile as sf
+
         try:
-            # torchaudio can extract audio from video files directly
-            # waveform shape: [channels, samples]
-            waveform, sample_rate = torchaudio.load(str(video_path))
+            # Use ffmpeg to extract audio to temp wav file (avoids torchcodec issues)
+            sample_rate = 44100  # Standard rate for LTX-2 audio VAE
+            with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp:
+                tmp_path = tmp.name
+
+            cmd = [
+                'ffmpeg', '-y', '-i', str(video_path),
+                '-vn', '-acodec', 'pcm_s16le', '-ar', str(sample_rate), '-ac', '2',  # Stereo for audio VAE
+                tmp_path
+            ]
+            result = subprocess.run(cmd, capture_output=True, timeout=30)
+
+            if result.returncode != 0:
+                logger.debug(f"ffmpeg audio extraction failed for {video_path}")
+                return None
+
+            # Load with soundfile (no torchcodec needed)
+            audio, sr = sf.read(tmp_path)
+            # soundfile returns [samples, channels] for stereo, need [channels, samples]
+            waveform = torch.from_numpy(audio).float()
+            if waveform.dim() == 1:
+                # Mono -> stereo
+                waveform = waveform.unsqueeze(0).repeat(2, 1)
+            else:
+                # Transpose to [channels, samples]
+                waveform = waveform.T
+
+            # Clean up temp file
+            import os
+            os.unlink(tmp_path)
 
             # Trim or pad to target duration
             target_samples = int(target_duration * sample_rate)

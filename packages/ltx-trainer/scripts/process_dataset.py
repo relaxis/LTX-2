@@ -46,6 +46,7 @@ def preprocess_dataset(  # noqa: PLR0913
     remove_llm_prefixes: bool = False,
     reference_column: str | None = None,
     with_audio: bool = False,
+    text_encoder_device: str | None = None,
 ) -> None:
     """Run the preprocessing pipeline with the given arguments."""
     # Validate dataset file
@@ -59,6 +60,11 @@ def preprocess_dataset(  # noqa: PLR0913
     if lora_trigger:
         logger.info(f'LoRA trigger word "{lora_trigger}" will be prepended to all captions')
 
+    # Determine text encoder device (allows CPU offloading to free GPU VRAM for video encoding)
+    caption_device = text_encoder_device if text_encoder_device else device
+    if caption_device == "cpu":
+        logger.info("Text encoder will run on CPU to maximize GPU VRAM for video encoding")
+
     # Process captions using the dedicated function
     compute_captions_embeddings(
         dataset_file=dataset_file,
@@ -70,8 +76,17 @@ def preprocess_dataset(  # noqa: PLR0913
         lora_trigger=lora_trigger,
         remove_llm_prefixes=remove_llm_prefixes,
         batch_size=batch_size,
-        device=device,
+        device=caption_device,
     )
+
+    # Force cleanup between caption and video processing to prevent OOM
+    import gc
+    import torch
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        torch.cuda.synchronize()
+    logger.debug("Memory barrier: GPU memory cleared before video processing")
 
     # Process videos using the dedicated function
     audio_latents_dir = None
@@ -217,6 +232,11 @@ def main(  # noqa: PLR0913
         default=False,
         help="Extract and encode audio from video files",
     ),
+    text_encoder_device: str | None = typer.Option(
+        default=None,
+        help="Device for text encoder (defaults to --device). Use 'cpu' to offload Gemma to CPU and "
+        "maximize GPU VRAM for video encoding of larger resolutions",
+    ),
 ) -> None:
     """Preprocess a video dataset by computing and saving latents and text embeddings.
     The dataset must be a CSV, JSON, or JSONL file with columns for captions and video paths.
@@ -237,6 +257,10 @@ def main(  # noqa: PLR0913
         python scripts/process_dataset.py dataset.json --resolution-buckets 768x512x97 \\
             --model-path /path/to/ltx2.safetensors --text-encoder-path /path/to/gemma \\
             --with-audio
+        # Process larger videos by offloading text encoder to CPU (frees ~22GB GPU VRAM)
+        python scripts/process_dataset.py dataset.json --resolution-buckets 1024x768x121 \\
+            --model-path /path/to/ltx2.safetensors --text-encoder-path /path/to/gemma \\
+            --text-encoder-device cpu --vae-tiling
     """
     parsed_resolution_buckets = parse_resolution_buckets(resolution_buckets)
 
@@ -262,6 +286,7 @@ def main(  # noqa: PLR0913
         remove_llm_prefixes=remove_llm_prefixes,
         reference_column=reference_column,
         with_audio=with_audio,
+        text_encoder_device=text_encoder_device,
     )
 
 

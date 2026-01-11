@@ -129,6 +129,7 @@ class QwenOmniCaptioner(MediaCaptioningModel):
         device: str | torch.device | None = None,
         use_8bit: bool = False,
         instruction: str | None = None,
+        model_path: str | None = None,
     ):
         """
         Initialize the Qwen2.5-Omni captioner.
@@ -136,9 +137,11 @@ class QwenOmniCaptioner(MediaCaptioningModel):
             device: Device to use for inference (e.g., 'cuda', 'cuda:0', 'cpu')
             use_8bit: Whether to use 8-bit quantization for reduced memory usage
             instruction: Custom instruction prompt. If None, uses the default instruction
+            model_path: Custom model path (e.g., for abliterated model). If None, uses MODEL_ID from HuggingFace
         """
         self.device = torch.device(device or ("cuda" if torch.cuda.is_available() else "cpu"))
         self.instruction = instruction
+        self.model_path = model_path or self.MODEL_ID
         self._load_model(use_8bit=use_8bit)
 
     @property
@@ -161,6 +164,8 @@ class QwenOmniCaptioner(MediaCaptioningModel):
         Returns:
             A string containing the generated caption
         """
+        from qwen_omni_utils import process_mm_info  # noqa: PLC0415
+
         path = Path(path)
         is_image = self._is_image_file(path)
         is_video = self._is_video_file(path)
@@ -196,18 +201,30 @@ class QwenOmniCaptioner(MediaCaptioningModel):
             {"role": "user", "content": user_content},
         ]
 
-        # Process inputs using the processor's apply_chat_template
-        # For videos with audio, use load_audio_from_video=True and use_audio_in_video=True
-        inputs = self.processor.apply_chat_template(
+        # Use qwen_omni_utils to preprocess video/audio with decord backend
+        # This avoids TorchCodec/FFmpeg dependency issues
+        audios, images, videos, video_kwargs = process_mm_info(
             messages,
-            load_audio_from_video=use_audio,
-            add_generation_prompt=True,
-            tokenize=True,
-            return_dict=True,
-            return_tensors="pt",
-            fps=fps,
-            padding=True,
             use_audio_in_video=use_audio,
+            return_video_kwargs=True,
+        )
+
+        # Apply chat template to get the text prompt
+        text = self.processor.apply_chat_template(
+            messages,
+            tokenize=False,
+            add_generation_prompt=True,
+        )
+
+        # Process inputs with preprocessed media
+        # Note: audio parameter is singular (first audio), videos is plural
+        inputs = self.processor(
+            text=text,
+            audio=audios[0] if audios else None,
+            images=images if images else None,
+            videos=videos if videos else None,
+            return_tensors="pt",
+            padding=True,
         ).to(self.model.device)
 
         # Generate caption (text only, using Thinker-only model)
@@ -215,10 +232,13 @@ class QwenOmniCaptioner(MediaCaptioningModel):
         # (not thinker_ prefixed ones, those are for the full Qwen2_5OmniForConditionalGeneration)
         input_len = inputs["input_ids"].shape[1]
 
+        import torch
+        torch.manual_seed(42)
         output_tokens = self.model.generate(
             **inputs,
             use_audio_in_video=use_audio,
-            do_sample=False,
+            do_sample=True,
+            temperature=0.7,
             max_new_tokens=1024,
         )
 
@@ -259,13 +279,14 @@ class QwenOmniCaptioner(MediaCaptioningModel):
 
         # Use Thinker-only model for text generation (saves memory by not loading Talker)
         self.model = Qwen2_5OmniThinkerForConditionalGeneration.from_pretrained(
-            self.MODEL_ID,
+            self.model_path,
             dtype=torch.bfloat16,
             low_cpu_mem_usage=True,
             quantization_config=quantization_config,
             device_map="auto",
         )
 
+        # Always load processor from original MODEL_ID (has tokenizer, image processor, etc)
         self.processor = Qwen2_5OmniProcessor.from_pretrained(self.MODEL_ID)
 
 
