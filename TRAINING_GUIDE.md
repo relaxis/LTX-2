@@ -4,7 +4,7 @@ A practical guide for training LTX-2 audio-video LoRAs on consumer GPUs (24-32GB
 
 **This fork adds:**
 - RamTorch CPU offloading for training on consumer GPUs
-- Memory-efficient configurations tested on RTX 4090
+- Memory-efficient configurations tested on RTX 5090
 - Practical guidance from real-world training experience
 
 ## Table of Contents
@@ -42,8 +42,7 @@ A practical guide for training LTX-2 audio-video LoRAs on consumer GPUs (24-32GB
 
 | GPU | VRAM | RAM | Config | Speed |
 |-----|------|-----|--------|-------|
-| RTX 4090 | 24GB | 64GB | BF16 + 70% ramtorch | ~8s/step |
-| RTX 4090 | 32GB | 64GB | BF16 + 60% ramtorch | ~7s/step |
+| RTX 5090 | 32GB | 64GB | BF16 + 60% ramtorch | ~7s/step |
 | A100 | 80GB | 128GB | BF16, no offload | ~4s/step |
 
 ---
